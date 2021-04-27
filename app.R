@@ -18,11 +18,10 @@ chicago_blocks <- subset(il_block_cook, GEOID10 %in% energy$CENSUS.BLOCK)
 
 nws <- subset(chicago_blocks, GEOID10 %in% energy_nws$CENSUS.BLOCK)
 join_nws_energy <- merge(x=nws, y=energy_nws, by.x='GEOID10', by.y='CENSUS.BLOCK')
-# mapview(join_nws_energy, zcol='TOTAL.KWH')
 
 filter_by <- c("Gas","Electricity","Building Age","Building Type","Building Height","Total Population")
 month <- c("January","February","March","April","May","June","July","August","September","October","November","December","All")
-building_type <- c("Residential","Commercial","All")
+building_type <- c("Residential","Commercial","Industrial", "All")
 
 e_month <- c("KWH.JANUARY.2010", "KWH.FEBRUARY.2010", "KWH.MARCH.2010", "KWH.APRIL.2010", "KWH.MAY.2010", "KWH.JUNE.2010",
                "KWH.JULY.2010", "KWH.AUGUST.2010", "KWH.SEPTEMBER.2010", "KWH.OCTOBER.2010", "KWH.NOVEMBER.2010", "KWH.DECEMBER.2010", "TOTAL.KWH")
@@ -36,7 +35,7 @@ g_month.y <- c("THERM.JANUARY.2010.y", "THERM.FEBRUARY.2010.y", "THERM.MARCH.201
 energy_tracts <- energy
 energy_tracts$TRACTS <- substr(energy$CENSUS.BLOCK,6,11)
 chicago_tracts <- subset(il_block_cook, TRACTCE10 %in% energy_tracts$TRACTS)
-# join_energy_tracts <- merge(x=chicago_tracts, y=energy_tracts, by.x='TRACTCE10', by.y='TRACTS')
+join_energy_tracts <- merge(x=chicago_tracts, y=energy_tracts, by.x='TRACTCE10', by.y='TRACTS')
 
 
 top10 <- c("Oldest Buildings", "Newest Buildings", "Tallest Buildings", "Most Electricity", "Most Gas", "Most Population", "Most Occupied Percentage", "Highest Percentage Renters")
@@ -100,13 +99,15 @@ ui <- dashboardPage(
       # "About" Tab
       tabItem(tabName = "about",
               h2("About"),
-              p("This project focuses on the visualization of data using the electrical power usage in Chicago dataset which was collected in 2010.
+              p("This project focuses on the visualization of data using the electricity and gas usage in Chicago dataset which was collected in 2010.
                 Important information such as the community area, census block, building type, electricity and gas usage are recorded.
                 By mapping the data according to the census block, it is possible to see how neighborhoods, types of buildings, age of buildings can affect the power usage throughout the year.
                 The original data is available from",
                 a("https://www.kaggle.com/chicago/chicago-energy-usage-2010"),
                 "as well as ",
                 a("https://data.cityofchicago.org/Environment-Sustainable-Development/Energy-Usage-2010/8yq3-m6wp"),
+                ". Another source of information about the demographic of the residents living in the city can be found at ",
+                a("https://datahub.cmap.illinois.gov/dataset/5700ba1a-b173-4391-a26e-48b198e830c8/resource/b30b47bf-bb0d-46b6-853b-47270fb7f626/download/CCASF12010CMAP.xlsx"),
                 ".",
                 style = "font-family : sans-serif"),
               p("The app is written by Eakasorn Suraminitkul and uses the data from 2010.",
@@ -150,8 +151,8 @@ ui <- dashboardPage(
               column(8,
                 column(6,
                   fluidRow(
-                    box(title = "Electricity Usage", solidHeader = TRUE, status = "primary", width = 12,
-                        plotOutput("eu_graph", height = 275)
+                    box(title = "Electricity Usage by Census Block", solidHeader = TRUE, status = "primary", width = 12,
+                        plotOutput("eu_graph", height = 375)
                     )
                   )
                 ),
@@ -159,8 +160,8 @@ ui <- dashboardPage(
                 # Gas
                 column(6,
                   fluidRow(
-                    box(title = "Gas Usage", solidHeader = TRUE, status = "primary", width = 12,
-                        plotOutput("gu_graph", height = 275)
+                    box(title = "Gas Usage by Census Block", solidHeader = TRUE, status = "primary", width = 12,
+                        plotOutput("gu_graph", height = 375)
                     )
                   )
                 ),
@@ -168,7 +169,7 @@ ui <- dashboardPage(
                 # Table
                 fluidRow(
                   box(title = "Table", solidHeader = TRUE, status = "primary", width = 12,
-                      DT::dataTableOutput("table"),style = "height:450px; overflow-y: scroll;overflow-x: scroll;"
+                      DT::dataTableOutput("table"),style = "height:350px; overflow-y: scroll;overflow-x: scroll;"
                   )
                 )
               )
@@ -183,7 +184,7 @@ ui <- dashboardPage(
               column(6,
                      fluidRow(
                        column(3,
-                              selectInput("cal", "Community area",       
+                              selectInput("cal", "Community Area",       
                                           community_area, selected="Near West Side")
                        ),
                        column(3,
@@ -217,7 +218,7 @@ ui <- dashboardPage(
               column(6,
                      fluidRow(
                        column(3,
-                              selectInput("car", "Community area",       
+                              selectInput("car", "Community Area",       
                                           community_area, selected="Loop")
                        ),
                        column(3,
@@ -483,56 +484,78 @@ server <- function(input, output) {
     }
   )
   
+  re_plot_1 <- reactive(switch(input$bt,
+                                "Residential" = subset(re_plot(), BUILDING.TYPE=='Residential'),
+                                "Commercial" = subset(re_plot(), BUILDING.TYPE=='Commercial'),
+                                "Industrial" = subset(re_plot(), BUILDING.TYPE=='Industrial'),
+                                "All" = re_plot()
+                              )  
+  )
+  
+  
   mapviewOptions(basemaps = "CartoDB.Positron",
                  vector.palette = colorRampPalette(c("pink","red","grey10")))
   
   output$map <- renderLeaflet(
     # reset button
     if(input$reset) {
-      mapview(re_plot(), zcol=attr(), alpha.regions=0.25, alpha=0.1, layer.name=attr())@map
+      mapview(re_plot_1(), zcol=attr(), alpha.regions=0.25, alpha=0.1, layer.name=attr())@map
     }
     else{
-      mapview(re_plot(), zcol=attr(), alpha.regions=0.25, alpha=0.1, layer.name=attr())@map
+      mapview(re_plot_1(), zcol=attr(), alpha.regions=0.25, alpha=0.1, layer.name=attr())@map
     }
   )
   
-    
-
-  graph <- reactive(
-    as.data.frame(t(re_plot()[!duplicated(re_plot()$GEOID10),]))
-    
-  )
   
   output$table <- renderDataTable(
-    # graph()[21:32,]
-  re_plot()
+    re_plot_1()
   )
   
-
-  output$t <- renderText(names(graph())) 
-    
+  e_geoid <- reactive({
+    temp <- re_plot_1()[1]
+    temp$geometry <- NULL
+    temp
+  })
+  e_geom <- reactive(re_plot_1()$geometry)
+  e_table <- reactive(
+    if(input$fb=='Electricity'){
+      temp <- re_plot_1()[21:32]
+      temp$geometry <- NULL
+      temp <- melt(temp)
+      temp$geoid <- e_geoid()$GEOID10[1:931]
+      temp
+    }
+  )
+  
   output$eu_graph <- renderPlot(
-  #   ggplot(graph()[21:32,], aes(x=row.names(graph()[21:32,]))) +
-  #     stat_summary(aes(y = graph()[c(21:32,1:2)]), geom="line") +
-  #     labs(x="Year", y="Amount (Megawatthours)") +
-  #     theme(text=element_text(size=12,  family="sans"), axis.text.x= element_text(angle=270))
-    ggplot(graph()[21:32,], aes(row.names(graph()), value, group=factor(rowid))) + geom_line(aes(color=factor(rowid)))  
-    
+    ggplot(e_table(), aes(x=variable, y=value, colour=factor(geoid))) +
+      stat_summary(aes(y = value, group=factor(geoid)), geom="line", show.legend = FALSE) +
+      labs(x="Month", y="Amount (Kilowatthours)") +
+      theme(text=element_text(size=12,  family="sans"), axis.text.x= element_text(angle=270))
   )
   
-  # output$eu_graph <- renderPlot(
-  #   ggplot(re_plot1(), aes(x=month[1:12])) +
-  #   stat_summary(aes(y = c(1:12)), geom="line") +
-  #   labs(x="Year", y="Amount (Megawatthours)") +
-  #   theme(text=element_text(size=12,  family="sans"), axis.text.x= element_text(angle=270))
-  # )
+  g_geoid <- reactive({
+    temp <- re_plot_1()[1]
+    temp$geometry <- NULL
+    temp
+  })
+  g_geom <- reactive(re_plot_1()$geometry)
+  g_table <- reactive(
+    if(input$fb=='Gas'){
+      temp <- re_plot_1()[21:32]
+      temp$geometry <- NULL
+      temp <- melt(temp)
+      temp$geoid <- g_geoid()$GEOID10[1:865]
+      temp
+    }
+  )
   
-  # output$eu_graph <- renderPlot(
-  #   ggplot(re_plot1(), aes(x=month[1:12], colour=f_energy.source)) +
-  #     stat_summary(aes(y = t_gen,group = f_energy.source), geom="line") +
-  #     labs(x="Year", y="Amount (Megawatthours)", colour="Energy Source") +
-  #     theme(text=element_text(size=12,  family="sans"), axis.text.x= element_text(angle=270))
-  # )
+  output$gu_graph <- renderPlot(
+    ggplot(g_table(), aes(x=variable, y=value, colour=factor(geoid))) +
+      stat_summary(aes(y = value, group=factor(geoid)), geom="line", show.legend = FALSE) +
+      labs(x="Month", y="Amount (Therms)") +
+      theme(text=element_text(size=12,  family="sans"), axis.text.x= element_text(angle=270))
+  )
   
   
   ##############################################################################
@@ -727,6 +750,15 @@ server <- function(input, output) {
     }
   )
 
+  re_plot_l_1 <- reactive(switch(input$btl,
+                               "Residential" = subset(re_plot_l(), BUILDING.TYPE=='Residential'),
+                               "Commercial" = subset(re_plot_l(), BUILDING.TYPE=='Commercial'),
+                               "Industrial" = subset(re_plot_l(), BUILDING.TYPE=='Industrial'),
+                               "All" = re_plot_l()
+                               )
+  )
+
+
   observe(
     if (input$colorl == "1"){
       mapviewOptions(basemaps = "CartoDB.Positron",
@@ -746,10 +778,10 @@ server <- function(input, output) {
   output$mapl <- renderLeaflet(
     # reset button
     if(input$resetl) {
-      mapview(re_plot_l(), zcol=attr_l(), alpha.regions=0.25, alpha=0.1, layer.name=attr_l())@map
+      mapview(re_plot_l_1(), zcol=attr_l(), alpha.regions=0.25, alpha=0.1, layer.name=attr_l())@map
     }
     else{
-      mapview(re_plot_l(), zcol=attr_l(), alpha.regions=0.25, alpha=0.1, layer.name=attr_l())@map
+      mapview(re_plot_l_1(), zcol=attr_l(), alpha.regions=0.25, alpha=0.1, layer.name=attr_l())@map
     }
 
   )
@@ -935,6 +967,15 @@ server <- function(input, output) {
     }
   )
 
+  re_plot_r_1 <- reactive(switch(input$btr,
+                                 "Residential" = subset(re_plot_r(), BUILDING.TYPE=='Residential'),
+                                 "Commercial" = subset(re_plot_r(), BUILDING.TYPE=='Commercial'),
+                                 "Industrial" = subset(re_plot_r(), BUILDING.TYPE=='Industrial'),
+                                 "All" = re_plot_r()
+                                 )
+  )
+
+
   observe(
     if (input$colorr == "1"){
       mapviewOptions(basemaps = "CartoDB.Positron",
@@ -954,10 +995,10 @@ server <- function(input, output) {
   output$mapr <- renderLeaflet(
     # reset button
     if(input$resetr) {
-      mapview(re_plot_r(), zcol=attr_r(), alpha.regions=0.25, alpha=0.1, layer.name=attr_r())@map
+      mapview(re_plot_r_1(), zcol=attr_r(), alpha.regions=0.25, alpha=0.1, layer.name=attr_r())@map
     }
     else{
-      mapview(re_plot_r(), zcol=attr_r(), alpha.regions=0.25, alpha=0.1, layer.name=attr_r())@map
+      mapview(re_plot_r_1(), zcol=attr_r(), alpha.regions=0.25, alpha=0.1, layer.name=attr_r())@map
     }
   )
 
